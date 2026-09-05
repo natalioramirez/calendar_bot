@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="row g-4 mb-4">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+        <div>
+            <h2 class="fw-bold mb-1">Panel de Control General</h2>
+            <p class="text-muted mb-0">Gestiona calendarios, usuarios y eventos del bot de Telegram.</p>
+        </div>
+        <div>
+            <a href="{{ url_for('list_events') }}" class="btn btn-primary d-flex align-items-center gap-1">
+                <i class="bi bi-plus-circle"></i> Nuevo Evento
+            </a>
+        </div>
+    </div>
+
+    <!-- Stat Cards -->
+    <div class="col-md-3 col-sm-6">
+        <div class="card stat-card border-0 shadow-sm p-3 bg-white">
+            <div class="d-flex align-items-center gap-3">
+                <div class="bg-primary-subtle text-primary p-3 rounded-circle fs-3">
+                    <i class="bi bi-folder2-open"></i>
+                </div>
+                <div>
+                    <h6 class="text-muted mb-1 text-uppercase fw-semibold" style="font-size: 0.75rem;">Calendarios</h6>
+                    <h3 class="fw-bold mb-0">{{ stats.calendars_count }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3 col-sm-6">
+        <div class="card stat-card border-0 shadow-sm p-3 bg-white">
+            <div class="d-flex align-items-center gap-3">
+                <div class="bg-success-subtle text-success p-3 rounded-circle fs-3">
+                    <i class="bi bi-people"></i>
+                </div>
+                <div>
+                    <h6 class="text-muted mb-1 text-uppercase fw-semibold" style="font-size: 0.75rem;">Usuarios Registrados</h6>
+                    <h3 class="fw-bold mb-0">{{ stats.users_count }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3 col-sm-6">
+        <div class="card stat-card border-0 shadow-sm p-3 bg-white">
+            <div class="d-flex align-items-center gap-3">
+                <div class="bg-warning-subtle text-warning p-3 rounded-circle fs-3">
+                    <i class="bi bi-calendar-check"></i>
+                </div>
+                <div>
+                    <h6 class="text-muted mb-1 text-uppercase fw-semibold" style="font-size: 0.75rem;">Eventos Totales</h6>
+                    <h3 class="fw-bold mb-0">{{ stats.events_count }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-3 col-sm-6">
+        <div class="card stat-card border-0 shadow-sm p-3 bg-white">
+            <div class="d-flex align-items-center gap-3">
+                <div class="bg-info-subtle text-info p-3 rounded-circle fs-3">
+                    <i class="bi bi-bell"></i>
+                </div>
+                <div>
+                    <h6 class="text-muted mb-1 text-uppercase fw-semibold" style="font-size: 0.75rem;">Recordatorios Pendientes</h6>
+                    <h3 class="fw-bold mb-0">{{ stats.reminders_pending }}</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Events and Quick Calendars -->
+<div class="row g-4">
+    <!-- Próximos Eventos -->
+    <div class="col-lg-8">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white border-0 pt-4 px-4 d-flex justify-content-between align-items-center">
+                <h5 class="fw-bold mb-0">Próximos Eventos Registrados</h5>
+                <a href="{{ url_for('list_events') }}" class="btn btn-sm btn-outline-secondary">Ver todos</a>
+            </div>
+            <div class="card-body px-4">
+                {% if upcoming_events %}
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Título</th>
+                                    <th>Calendario</th>
+                                    <th>Notas</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for ev in upcoming_events %}
+                                <tr>
+                                    <td class="fw-semibold text-primary" style="white-space: nowrap;">
+                                        <i class="bi bi-calendar-event me-1"></i> {{ ev.start_time.strftime('%d/%m/%Y %H:%M') }}
+                                    </td>
+                                    <td class="fw-bold">{{ ev.title }}</td>
+                                    <td>
+                                        <span class="badge bg-secondary-subtle text-secondary border">
+                                            {{ ev.calendar.name if ev.calendar else '-' }}
+                                        </span>
+                                    </td>
+                                    <td class="text-muted small text-truncate" style="max-width: 200px;">
+                                        {{ ev.notes or '-' }}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-5 text-muted">
+                        <i class="bi bi-calendar-x fs-1 d-block mb-2"></i>
+                        No hay eventos futuros registrados.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Calendarios Activos -->
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm h-100">
+            <div class="card-header bg-white border-0 pt-4 px-4 d-flex justify-content-between align-items-center">
+                <h5 class="fw-bold mb-0">Calendarios</h5>
+                <a href="{{ url_for('list_calendars') }}" class="btn btn-sm btn-outline-secondary">Administrar</a>
+            </div>
+            <div class="card-body px-4">
+                <div class="list-group list-group-flush">
+                    {% for cal in calendars %}
+                    <div class="list-group-item px-0 py-3 d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="fw-bold">{{ cal.name }}</div>
+                            <small class="text-muted">
+                                Código: <code>{{ cal.invite_code }}</code> &middot; {{ cal.members|length }} miembro(s)
+                            </small>
+                        </div>
+                        <span class="badge bg-primary rounded-pill">{{ cal.events|length }} eventos</span>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4 text-muted">
+                        No hay calendarios creados.
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

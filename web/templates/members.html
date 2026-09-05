@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+
+{% block title %}Usuarios y Membresías{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="fw-bold mb-1">Usuarios y Asignación de Calendarios</h2>
+        <p class="text-muted mb-0">Asigna, mueve o remueve usuarios de los distintos calendarios.</p>
+    </div>
+    <button type="button" class="btn btn-primary d-flex align-items-center gap-1" data-bs-toggle="modal" data-bs-target="#assignUserModal">
+        <i class="bi bi-person-plus"></i> Asignar / Mover Usuario
+    </button>
+</div>
+
+<!-- Filtro por Calendario -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body p-3">
+        <form method="GET" class="row g-2 align-items-center">
+            <div class="col-auto">
+                <label class="col-form-label fw-semibold text-muted">Filtrar por calendario:</label>
+            </div>
+            <div class="col-md-4">
+                <select name="calendar_id" class="form-select form-select-sm" onchange="this.form.submit()">
+                    <option value="">Todos los calendarios</option>
+                    {% for c in calendars %}
+                    <option value="{{ c.id }}" {% if selected_calendar_id == c.id %}selected{% endif %}>
+                        {{ c.name }} ({{ c.members|length }} miembros)
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% if selected_calendar_id %}
+            <div class="col-auto">
+                <a href="{{ url_for('list_members') }}" class="btn btn-outline-secondary btn-sm">Limpiar filtro</a>
+            </div>
+            {% endif %}
+        </form>
+    </div>
+</div>
+
+<!-- Members Table -->
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-4">Usuario</th>
+                        <th>Telegram ID</th>
+                        <th>Calendario</th>
+                        <th>Rol</th>
+                        <th>Notificaciones</th>
+                        <th class="text-end pe-4">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in memberships %}
+                    <tr>
+                        <td class="ps-4">
+                            <div class="fw-bold text-dark">{{ item.user.full_name or 'Sin Nombre' }}</div>
+                            <small class="text-muted">@{{ item.user.username or 'sin_alias' }}</small>
+                        </td>
+                        <td>
+                            <code>{{ item.user.telegram_id }}</code>
+                        </td>
+                        <td>
+                            <span class="badge bg-secondary-subtle text-secondary border font-monospace fs-6 px-2 py-1">
+                                {{ item.calendar.name }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge {% if item.role == 'owner' %}bg-warning text-dark{% else %}bg-light text-dark border{% endif %} text-uppercase">
+                                {{ item.role }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if item.receive_notifications %}
+                                <span class="badge bg-success-subtle text-success border">
+                                    <i class="bi bi-bell-fill me-1"></i> Activas
+                                </span>
+                            {% else %}
+                                <span class="badge bg-secondary-subtle text-secondary border">
+                                    <i class="bi bi-bell-slash me-1"></i> Desactivadas
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td class="text-end pe-4">
+                            <form action="{{ url_for('remove_member_route') }}" method="POST" class="d-inline" onsubmit="return confirm('¿Remover a este usuario del calendario {{ item.calendar.name }}?');">
+                                <input type="hidden" name="user_id" value="{{ item.user.id }}">
+                                <input type="hidden" name="calendar_id" value="{{ item.calendar.id }}">
+                                <button type="submit" class="btn btn-outline-danger btn-sm" title="Remover del Calendario">
+                                    <i class="bi bi-person-x"></i> Remover
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="text-center py-5 text-muted">
+                            <i class="bi bi-people fs-1 d-block mb-2"></i>
+                            No hay membresías registradas con los filtros seleccionados.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Asignar / Mover Usuario -->
+<div class="modal fade" id="assignUserModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <form action="{{ url_for('assign_user_route') }}" method="POST">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold">Asignar o Mover Usuario a Calendario</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Seleccionar Usuario <span class="text-danger">*</span></label>
+                        <select name="user_id" class="form-select" required>
+                            {% for u in users %}
+                                <option value="{{ u.id }}">{{ u.full_name or u.username or ('ID: ' ~ u.telegram_id) }} (@{{ u.username or 'sin_alias' }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Calendario de Destino <span class="text-danger">*</span></label>
+                        <select name="calendar_id" class="form-select" required>
+                            {% for c in calendars %}
+                                <option value="{{ c.id }}">{{ c.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Rol del Usuario</label>
+                        <select name="role" class="form-select">
+                            <option value="member" selected>Miembro (Member)</option>
+                            <option value="admin">Administrador (Admin)</option>
+                            <option value="owner">Propietario (Owner)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Asignación</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

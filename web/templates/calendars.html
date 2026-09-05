@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+
+{% block title %}Administrar Calendarios{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2 class="fw-bold mb-1">Administración de Calendarios</h2>
+        <p class="text-muted mb-0">Crea, edita y elimina calendarios de los equipos.</p>
+    </div>
+    <button type="button" class="btn btn-primary d-flex align-items-center gap-1" data-bs-toggle="modal" data-bs-target="#createCalendarModal">
+        <i class="bi bi-plus-lg"></i> Crear Nuevo Calendario
+    </button>
+</div>
+
+<!-- Calendars Table -->
+<div class="card border-0 shadow-sm">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th class="ps-4">ID</th>
+                        <th>Nombre del Calendario</th>
+                        <th>Descripción</th>
+                        <th>Código de Invitación</th>
+                        <th>Creador / Dueño</th>
+                        <th>Miembros</th>
+                        <th>Eventos</th>
+                        <th class="text-end pe-4">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cal in calendars %}
+                    <tr>
+                        <td class="ps-4 text-muted fw-bold">#{{ cal.id }}</td>
+                        <td>
+                            <div class="fw-bold text-dark">{{ cal.name }}</div>
+                        </td>
+                        <td class="text-muted small">
+                            {{ cal.description or '-' }}
+                        </td>
+                        <td>
+                            <span class="badge bg-light text-dark border font-monospace fs-6 px-2 py-1">
+                                {{ cal.invite_code }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if cal.owner %}
+                                <span class="fw-semibold">{{ cal.owner.full_name or cal.owner.username or ('ID: ' ~ cal.owner.telegram_id) }}</span>
+                            {% else %}
+                                <span class="text-muted">Sistema</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{{ url_for('list_members') }}?calendar_id={{ cal.id }}" class="badge bg-primary-subtle text-primary border text-decoration-none">
+                                <i class="bi bi-people me-1"></i> {{ cal.members|length }} miembros
+                            </a>
+                        </td>
+                        <td>
+                            <a href="{{ url_for('list_events') }}?calendar_id={{ cal.id }}" class="badge bg-success-subtle text-success border text-decoration-none">
+                                <i class="bi bi-calendar-event me-1"></i> {{ cal.events|length }} eventos
+                            </a>
+                        </td>
+                        <td class="text-end pe-4">
+                            <form action="{{ url_for('delete_calendar_route', calendar_id=cal.id) }}" method="POST" class="d-inline" onsubmit="return confirm('¿Estás seguro de que deseas eliminar este calendario? Se eliminarán también todos sus eventos y miembros asociados.');">
+                                <button type="submit" class="btn btn-outline-danger btn-sm" title="Eliminar Calendario">
+                                    <i class="bi bi-trash3"></i>
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="text-center py-5 text-muted">
+                            <i class="bi bi-folder-x fs-1 d-block mb-2"></i>
+                            No hay calendarios registrados.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Crear Calendario -->
+<div class="modal fade" id="createCalendarModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <form action="{{ url_for('create_calendar_route') }}" method="POST">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-bold">Crear Nuevo Calendario</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Nombre del Calendario <span class="text-danger">*</span></label>
+                        <input type="text" name="name" class="form-control" placeholder="Ej. Equipo de Marketing / Guardias" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Descripción (Opcional)</label>
+                        <textarea name="description" class="form-control" rows="3" placeholder="Descripción de los eventos de este calendario..."></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Usuario Creador / Propietario</label>
+                        <select name="owner_id" class="form-select">
+                            {% for u in users %}
+                                <option value="{{ u.id }}">{{ u.full_name or u.username or ('ID: ' ~ u.telegram_id) }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Crear Calendario</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
