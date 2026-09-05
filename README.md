@@ -6,15 +6,19 @@ A modern, async Telegram bot built in Python to help work teams coordinate sched
 
 ## ✨ Key Features
 
-- 📅 **Register & Schedule Important Dates**: Interactive wizard to add events with dates and times.
-- 🗂 **Multiple Calendars**: Create separate calendars for different teams, projects, or categories (e.g., *Engineering*, *Marketing*, *Client Deadlines*).
-- 🔗 **Easy Team Onboarding**: Invite teammates using a unique invite code or 1-click invite link (`https://t.me/YourBot?start=join_CODE`).
-- 📝 **Rich Event Notes**: Attach agendas, meeting links, checklist items, and descriptions directly to events.
-- 🔔 **Automated Reminder Notifications**:
-  - Configurable alert timings: *At event time*, *15 minutes before*, *1 hour before*, *1 day before*.
-  - Dispatches reminder notifications directly to all enrolled team members.
-  - Per-calendar notification mute/unmute toggles.
-- 🔄 **Google Calendar Integration**: Optional sync with Google Calendar API (via Service Account).
+The bot itself is deliberately tiny: users **subscribe to a calendar**, **see upcoming
+dates**, and **get alerts**. Nothing else. Everything administrative — creating calendars,
+adding events, managing members — happens in the web panel.
+
+- 🔔 **Subscribe & get alerted**: `/sub` lists the available calendars; pick one and the
+  bot sends you its reminders automatically. `/unsub` stops them.
+- 📅 **See upcoming dates**: `/events` prints your next dates in a single plain list.
+- 📝 **Rich Event Notes**: Agendas, meeting links, and descriptions are attached to events
+  in the panel and shown alongside each date.
+- 🖥 **Web Administration Panel**: All administration tasks (calendars, members, events, Islamic holiday sync) are done from a local Flask panel — there are no admin commands in the bot.
+- 🔄 **Google Calendar Integration**: *Currently inactive* — the service client still lives in
+  `bot/services/google_calendar.py`, but nothing calls it since event creation was removed
+  from the bot. Re-wire it from the web panel if you need the push again.
 
 ---
 
@@ -29,18 +33,21 @@ tg_calendar/
 │   │   ├── session.py         # Async SQLite / PostgreSQL session factory
 │   │   └── crud.py            # Database queries and operations
 │   ├── handlers/
-│   │   ├── start.py           # /start, /help, and invite code handling
-│   │   ├── calendars.py       # Calendar creation, switching, membership, invite links
-│   │   └── events.py          # Event creation wizard, notes editing, listing, deletion
+│   │   ├── start.py           # /start: registers the user and lists the commands
+│   │   ├── subscriptions.py   # /sub and /unsub
+│   │   └── events.py          # /events: the upcoming dates list
 │   ├── keyboards/
-│   │   ├── common.py          # Main reply keyboard & navigation buttons
-│   │   └── calendar_picker.py # Inline keyboards for calendars, dates, times, and reminders
+│   │   └── common.py          # The calendar picker used by /sub and /unsub
 │   ├── services/
 │   │   ├── scheduler.py       # Background reminder checker & dispatcher
 │   │   └── google_calendar.py # Google Calendar API v3 client
 │   ├── utils/
 │   │   └── datetime_utils.py  # Simple date & time parsing and formatting
 │   └── main.py                # Bot application setup & runner
+├── web/
+│   ├── app.py                 # Flask web administration panel (the only admin interface)
+│   └── templates/             # Panel pages (dashboard, calendars, members, events)
+├── run.py                     # Single entry point: starts the bot + the web panel
 ├── tests/                     # Automated pytest suite
 ├── .env.example               # Environment variables template
 ├── requirements.txt           # Python dependencies
@@ -83,11 +90,23 @@ Open `.env` and set your `BOT_TOKEN`:
 BOT_TOKEN=123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ
 ```
 
-### 5. Run the Bot
+### 5. Run the Bot + Admin Panel
+A single command starts both the Telegram bot and the web administration panel:
 ```bash
-python -m bot.main
+python run.py
 ```
-Open your bot on Telegram and send `/start`!
+- 🤖 The bot starts polling — open it on Telegram and send `/start`.
+- 🖥 The admin panel is served at **http://127.0.0.1:5314**.
+
+Press `Ctrl+C` once to stop both services.
+
+The host and port come from `WEB_ADMIN_HOST` / `WEB_ADMIN_PORT` in your `.env`.
+The panel binds to `127.0.0.1`, so it is reachable only from this machine — it has
+no login, so do not expose it on a public interface.
+
+> Each service runs as its own process because both need a separate asyncio event
+> loop; SQLite runs in WAL mode, so concurrent access from both is safe.
+> You can still run them individually with `python -m bot.main` and `python -m web.app`.
 
 ---
 
@@ -101,17 +120,55 @@ Open your bot on Telegram and send `/start`!
 
 ## 📖 Bot Commands & Usage
 
-| Command | Button Equivalent | Description |
-| :--- | :--- | :--- |
-| `/start` | - | Registers user, shows dashboard, or joins a calendar via link |
-| `/new` | `➕ New Event` | Interactive wizard to schedule a new date/event with notes |
-| `/events` | `📅 Upcoming Dates` | View all upcoming events across your calendars |
-| `/calendars` | `🗂 My Calendars` | Manage team calendars, create new ones, share invite codes |
-| `/help` | `❓ Help & Info` | Detailed instructions and tips |
+The bot has four commands and no buttons or menus:
+
+| Command | Description |
+| :--- | :--- |
+| `/start` | Registers you and shows this list |
+| `/sub` | Lists the calendars you are not subscribed to; tap one to subscribe |
+| `/unsub` | Lists your calendars; tap one to stop its alerts |
+| `/events` | Your upcoming dates, across every calendar you follow |
+
+Alerts arrive on their own — there is nothing to configure.
+
+Users cannot create calendars or events from the bot, and there are **no admin commands**.
+All of that lives in the web panel.
 
 ---
 
-## 🔗 Google Calendar Setup (Optional)
+## 🖥 Web Administration Panel
+
+Served at **http://127.0.0.1:5314** (started by `python run.py`).
+
+| Page | What you can do |
+| :--- | :--- |
+| **Dashboard** | Overview stats, upcoming events, and a manual *Islamic holiday sync* trigger |
+| **Calendars** | Create and delete calendars, view invite codes |
+| **Members** | Assign users to calendars, change roles, remove members |
+| **Events** | Create and delete events in any calendar, filter by calendar |
+
+Automatic Islamic holiday sync still runs by itself inside the bot process (on startup
+and monthly); the panel button is for triggering it on demand.
+
+### Avoiding API calls on every startup
+
+By default the bot syncs Islamic holidays a few seconds after booting, which hits the
+AlAdhan API each time it starts. To turn that off, set in your `.env`:
+
+```env
+CALLS_ON_BOOT=false
+```
+
+The monthly scheduled sync and the panel's manual sync button keep working — only the
+startup call is skipped.
+
+---
+
+## 🔗 Google Calendar Setup (Optional, currently unused)
+
+> ⚠️ Nothing calls the Google Calendar client right now. Events used to be pushed when the
+> bot's creation wizard finished, and that wizard was removed when the bot was simplified.
+> The steps below still describe how to configure the credentials if you wire it back up.
 
 To sync bot events with a shared Google Calendar:
 1. Create a project in the [Google Cloud Console](https://console.cloud.google.com/).

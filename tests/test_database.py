@@ -23,8 +23,8 @@ async def test_session():
 
 
 @pytest.mark.asyncio
-async def test_user_creation_and_default_calendar(test_session: AsyncSession):
-    """Test user registration creates user and a default personal calendar."""
+async def test_user_creation_starts_with_no_calendars(test_session: AsyncSession):
+    """A new user is registered without any calendar: they subscribe with /sub."""
     user = await crud.get_or_create_user(
         test_session,
         telegram_id=123456789,
@@ -34,11 +34,9 @@ async def test_user_creation_and_default_calendar(test_session: AsyncSession):
     assert user.id is not None
     assert user.telegram_id == 123456789
 
-    # User should automatically have their default calendar
+    # No personal calendar is auto-created any more.
     calendars = await crud.get_user_calendars(test_session, user.id)
-    assert len(calendars) == 1
-    assert calendars[0].name == "Personal Calendar"
-    assert calendars[0].invite_code is not None
+    assert calendars == []
 
 
 @pytest.mark.asyncio

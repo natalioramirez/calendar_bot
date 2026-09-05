@@ -32,24 +32,8 @@ async def get_or_create_user(
         )
         db.add(user)
         await db.flush()
-
-        # Create a default "Personal Calendar" for new users
-        default_cal = Calendar(
-            name="Personal Calendar",
-            description="My personal reminders & events",
-            owner_id=user.id,
-        )
-        db.add(default_cal)
-        await db.flush()
-
-        membership = CalendarMember(
-            calendar_id=default_cal.id,
-            user_id=user.id,
-            role="owner",
-            receive_notifications=True,
-        )
-        db.add(membership)
-        await db.flush()
+        # No personal calendar is created: calendars come from the web admin panel
+        # and users only subscribe to them with /sub.
     else:
         # Update username/full_name if changed
         updated = False
@@ -469,7 +453,7 @@ async def get_all_events_with_details(
     calendar_id: Optional[int] = None,
 ) -> Sequence[Event]:
     """Get all events with their calendar and creator loaded."""
-    stmt = select(Event).options(selectinload(Event.calendar), selectinload(Event.created_by))
+    stmt = select(Event).options(selectinload(Event.calendar), selectinload(Event.creator))
     if calendar_id:
         stmt = stmt.where(Event.calendar_id == calendar_id)
     stmt = stmt.order_by(Event.start_time.asc())

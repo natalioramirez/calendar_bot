@@ -28,6 +28,10 @@ BA_LON = -58.3816
 API_URL = "https://api.aladhan.com/v1/calendar"
 
 
+class CalendarNotFoundError(LookupError):
+    """Raised when the calendar targeted by the sync does not exist yet."""
+
+
 def clean_tokens(text: str) -> List[str]:
     """Normalize text into word tokens, removing accents, punctuation and quotes."""
     normalized = unicodedata.normalize("NFKD", text)
@@ -85,6 +89,16 @@ async def sync_islamic_calendar(calendar_name: str, start_year: int, start_month
       - Mubahala (24 de Dhul-Hiyya)
       - Año Nuevo Hijri (1 de Muharram)
     """
+    # Verify the target calendar exists before spending ~24 API requests on data
+    # we would have to throw away. The session is closed again right away so it is
+    # not held open across the network calls below.
+    async with get_db() as db:
+        if not await crud.get_calendar_by_name(db, calendar_name):
+            raise CalendarNotFoundError(
+                f"Calendar '{calendar_name}' does not exist. Create a calendar named "
+                f"'{calendar_name}' in the web admin panel before syncing."
+            )
+
     total_created = 0
     all_events: List[Dict] = []
     ramadan_fridays: Dict[str, List[Dict]] = {}
@@ -176,8 +190,9 @@ async def sync_islamic_calendar(calendar_name: str, start_year: int, start_month
     async with get_db() as db:
         cal = await crud.get_calendar_by_name(db, calendar_name)
         if not cal:
-            logger.warning(f"Calendar '{calendar_name}' not found – cannot sync Islamic events.")
-            return 0
+            raise CalendarNotFoundError(
+                f"Calendar '{calendar_name}' was removed while the sync was running."
+            )
 
         for ev in all_events:
             title_str = ev["title"]

@@ -1,34 +1,14 @@
-"""Common Telegram keyboards and buttons."""
+"""The only keyboard the bot needs: picking a calendar to subscribe to or leave."""
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, ReplyKeyboardMarkup
+from typing import Sequence
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-
-def get_main_reply_keyboard() -> ReplyKeyboardMarkup:
-    """Persistent reply keyboard with main quick actions."""
-    keyboard = [
-        ["📅 Upcoming Dates", "➕ New Event"],
-        ["🗂 My Calendars", "❓ Help & Info"],
-    ]
-    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+from bot.database.models import Calendar
 
 
-def get_cancel_keyboard(callback_data: str = "cancel") -> InlineKeyboardMarkup:
-    """Inline keyboard with a single Cancel button."""
-    return InlineKeyboardMarkup([[InlineKeyboardButton("❌ Cancel", callback_data=callback_data)]])
-
-
-def get_skip_or_cancel_keyboard(skip_data: str = "skip", cancel_data: str = "cancel") -> InlineKeyboardMarkup:
-    """Inline keyboard with Skip and Cancel buttons (e.g. for optional notes)."""
+def get_calendar_choice_keyboard(calendars: Sequence[Calendar], action: str) -> InlineKeyboardMarkup:
+    """One button per calendar. `action` is the callback prefix: 'sub' or 'unsub'."""
     return InlineKeyboardMarkup([
-        [
-            InlineKeyboardButton("⏭ Skip (No Notes)", callback_data=skip_data),
-            InlineKeyboardButton("❌ Cancel", callback_data=cancel_data),
-        ]
-    ])
-
-
-def get_back_to_menu_keyboard() -> InlineKeyboardMarkup:
-    """Inline keyboard to return to main menu."""
-    return InlineKeyboardMarkup([
-        [InlineKeyboardButton("🏠 Main Menu", callback_data="main_menu")]
+        [InlineKeyboardButton(f"📁 {cal.name}", callback_data=f"{action}:{cal.id}")]
+        for cal in calendars
     ])
