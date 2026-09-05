@@ -31,7 +31,8 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         "*Comandos:*\n"
         "/sub — suscribirte a un calendario\n"
         "/unsub — dejar de seguir un calendario\n"
-        "/events — ver tus próximas fechas\n\n"
+        "/events — ver tus próximas fechas\n"
+        "/nuevo — crear un evento en un calendario\n\n"
         "Las alertas te llegan solas, no tenés que hacer nada más.",
         parse_mode="Markdown",
     )

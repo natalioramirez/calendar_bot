@@ -7,12 +7,13 @@ A modern, async Telegram bot built in Python to help work teams coordinate sched
 ## ✨ Key Features
 
 The bot itself is deliberately tiny: users **subscribe to a calendar**, **see upcoming
-dates**, and **get alerts**. Nothing else. Everything administrative — creating calendars,
-adding events, managing members — happens in the web panel.
+dates**, **add a date**, and **get alerts**. Nothing else. Everything administrative —
+creating calendars, managing members, bulk event edits — happens in the web panel.
 
 - 🔔 **Subscribe & get alerted**: `/sub` lists the available calendars; pick one and the
   bot sends you its reminders automatically. `/unsub` stops them.
 - 📅 **See upcoming dates**: `/events` prints your next dates in a single plain list.
+- ➕ **Add a date**: `/nuevo` walks you through calendar → date → title in three steps.
 - 📝 **Rich Event Notes**: Agendas, meeting links, and descriptions are attached to events
   in the panel and shown alongside each date.
 - 🖥 **Web Administration Panel**: All administration tasks (calendars, members, events, Islamic holiday sync) are done from a local Flask panel — there are no admin commands in the bot.
@@ -35,6 +36,7 @@ tg_calendar/
 │   ├── handlers/
 │   │   ├── start.py           # /start: registers the user and lists the commands
 │   │   ├── subscriptions.py   # /sub and /unsub
+│   │   ├── create_event.py    # /nuevo: the 3-step event creation flow
 │   │   └── events.py          # /events: the upcoming dates list
 │   ├── keyboards/
 │   │   └── common.py          # The calendar picker used by /sub and /unsub
@@ -120,7 +122,7 @@ no login, so do not expose it on a public interface.
 
 ## 📖 Bot Commands & Usage
 
-The bot has four commands and no buttons or menus:
+The bot has four commands (plus `/cancel`) and no persistent menus:
 
 | Command | Description |
 | :--- | :--- |
@@ -128,11 +130,21 @@ The bot has four commands and no buttons or menus:
 | `/sub` | Lists the calendars you are not subscribed to; tap one to subscribe |
 | `/unsub` | Lists your calendars; tap one to stop its alerts |
 | `/events` | Your upcoming dates, across every calendar you follow |
+| `/nuevo` | Creates an event: pick a calendar, type the date, type the title |
+| `/cancel` | Aborts `/nuevo` halfway through |
 
 Alerts arrive on their own — there is nothing to configure.
 
-Users cannot create calendars or events from the bot, and there are **no admin commands**.
-All of that lives in the web panel.
+### About `/nuevo`
+
+Any subscriber can add a date to a calendar they follow — there is no admin role in the
+bot. The event alerts **at its start time and one hour before**, for every subscriber of
+that calendar; those timings are fixed (`DEFAULT_REMINDER_OFFSETS` in
+`bot/handlers/create_event.py`). Dates in the past are rejected, since their reminders
+would fire immediately.
+
+Users still cannot create or delete *calendars* from the bot, and there are **no admin
+commands** — that lives in the web panel.
 
 ---
 
