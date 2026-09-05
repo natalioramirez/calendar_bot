@@ -19,8 +19,10 @@ class Settings(BaseSettings):
     # Reminder polling interval in seconds
     REMINDER_CHECK_INTERVAL_SECONDS: int = 30
 
-    # Admin user IDs (Telegram) who can run admin commands
-    ADMIN_USER_IDS: Union[List[int], str] = []
+    # Whether to run the initial Islamic calendar sync on startup.
+    # Disable it to avoid hitting the AlAdhan API every time the bot boots;
+    # the monthly scheduled sync and the web panel button are unaffected.
+    CALLS_ON_BOOT: bool = True
 
     # Allowed Islamic calendar events/keywords to sync into calendar 'P'
     ISLAMIC_ALLOWED_EVENTS: Union[List[str], str] = [
@@ -46,13 +48,6 @@ class Settings(BaseSettings):
         "Mubahala",
     ]
 
-    @field_validator("ADMIN_USER_IDS", mode="after")
-    @classmethod
-    def parse_admin_ids(cls, v: Union[List[int], str]) -> List[int]:
-        if isinstance(v, str):
-            return [int(x.strip()) for x in v.split(",") if x.strip().isdigit()]
-        return v
-
     @field_validator("ISLAMIC_ALLOWED_EVENTS", mode="after")
     @classmethod
     def parse_islamic_events(cls, v: Union[List[str], str]) -> List[str]:
@@ -61,9 +56,9 @@ class Settings(BaseSettings):
         return v
 
 
-    # Web Admin Flask Panel Settings
+    # Web Admin Flask Panel Settings (the only administration interface)
     WEB_ADMIN_HOST: str = "127.0.0.1"
-    WEB_ADMIN_PORT: int = 8088
+    WEB_ADMIN_PORT: int = 5314
 
     # Google Calendar Settings (optional)
     GOOGLE_SERVICE_ACCOUNT_FILE: str = ""

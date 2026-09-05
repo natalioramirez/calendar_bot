@@ -78,7 +78,7 @@
                             </span>
                         </td>
                         <td class="small text-muted">
-                            {{ ev.created_by.full_name or ev.created_by.username or ('ID: ' ~ ev.created_by.telegram_id) if ev.created_by else 'Admin' }}
+                            {{ ev.creator.full_name or ev.creator.username or ('ID: ' ~ ev.creator.telegram_id) if ev.creator else 'Admin' }}
                         </td>
                         <td class="text-end pe-4">
                             <form action="{{ url_for('delete_event_route', event_id=ev.id) }}" method="POST" class="d-inline" onsubmit="return confirm('¿Eliminar este evento y sus recordatorios?');">

@@ -8,7 +8,7 @@ from flask import Flask, flash, redirect, render_template, request, url_for
 from bot.config import settings
 from bot.database import crud
 from bot.database.session import get_db, init_db
-from bot.services.islamic_calendar import sync_islamic_calendar
+from bot.services.islamic_calendar import CalendarNotFoundError, sync_islamic_calendar
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -300,10 +300,20 @@ async def sync_islamic():
     now = datetime.now()
     try:
         count = await sync_islamic_calendar("P", now.year, now.month, months_ahead=12)
-        flash(f"Sincronización islámica completada. Se importaron {count} nuevas festividades para el calendario 'P'.", "success")
+    except CalendarNotFoundError:
+        flash(
+            "No existe el calendario 'P', que es donde se importan las festividades. "
+            "Crealo desde la sección Calendarios y volvé a sincronizar.",
+            "error",
+        )
     except Exception as e:
         logger.exception("Error syncing Islamic calendar via web: %s", e)
         flash(f"Error al sincronizar festividades islámicas: {e}", "error")
+    else:
+        if count:
+            flash(f"Sincronización completada: se importaron {count} nuevas festividades en el calendario 'P'.", "success")
+        else:
+            flash("Sincronización completada: el calendario 'P' ya estaba al día, no había festividades nuevas.", "success")
 
     return redirect(url_for("dashboard"))
 
