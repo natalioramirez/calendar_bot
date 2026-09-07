@@ -13,7 +13,10 @@ creating calendars, managing members, bulk event edits — happens in the web pa
 - 🔔 **Subscribe & get alerted**: `/sub` lists the available calendars; pick one and the
   bot sends you its reminders automatically. `/unsub` stops them.
 - 📅 **See upcoming dates**: `/events` prints your next dates in a single plain list.
-- ➕ **Add a date**: `/nuevo` walks you through calendar → date → title in three steps.
+- ➕ **Add a date**: `/nuevo` walks you through calendar → date → title → recurrence →
+  comment (the calendar step is skipped if you only follow one).
+- ✏️ **Edit a date**: `/edit` lets you pick one of your upcoming events and change its
+  date, title, comment, or recurrence.
 - 📝 **Rich Event Notes**: Agendas, meeting links, and descriptions are attached to events
   in the panel and shown alongside each date.
 - 🖥 **Web Administration Panel**: All administration tasks (calendars, members, events, Islamic holiday sync) are done from a local Flask panel — there are no admin commands in the bot.
@@ -36,10 +39,11 @@ tg_calendar/
 │   ├── handlers/
 │   │   ├── start.py           # /start: registers the user and lists the commands
 │   │   ├── subscriptions.py   # /sub and /unsub
-│   │   ├── create_event.py    # /nuevo: the 3-step event creation flow
+│   │   ├── create_event.py    # /nuevo: the event creation flow
+│   │   ├── edit_event.py      # /edit: the event editing flow
 │   │   └── events.py          # /events: the upcoming dates list
 │   ├── keyboards/
-│   │   └── common.py          # The calendar picker used by /sub and /unsub
+│   │   └── common.py          # Calendar picker, recurrence picker, edit-field menu
 │   ├── services/
 │   │   ├── scheduler.py       # Background reminder checker & dispatcher
 │   │   └── google_calendar.py # Google Calendar API v3 client
@@ -122,7 +126,7 @@ no login, so do not expose it on a public interface.
 
 ## 📖 Bot Commands & Usage
 
-The bot has four commands (plus `/cancel`) and no persistent menus:
+The bot has five commands (plus `/cancel`) and no persistent menus:
 
 | Command | Description |
 | :--- | :--- |
@@ -130,18 +134,21 @@ The bot has four commands (plus `/cancel`) and no persistent menus:
 | `/sub` | Lists the calendars you are not subscribed to; tap one to subscribe |
 | `/unsub` | Lists your calendars; tap one to stop its alerts |
 | `/events` | Your upcoming dates, across every calendar you follow |
-| `/nuevo` | Creates an event: pick a calendar, type the date, type the title |
-| `/cancel` | Aborts `/nuevo` halfway through |
+| `/nuevo` | Creates an event: calendar (skipped if you only have one), date, title, recurrence, comment |
+| `/edit` | Pick one of your upcoming events and change its date, title, comment, or recurrence |
+| `/cancel` | Aborts `/nuevo` or `/edit` halfway through |
 
 Alerts arrive on their own — there is nothing to configure.
 
-### About `/nuevo`
+### About `/nuevo` and `/edit`
 
-Any subscriber can add a date to a calendar they follow — there is no admin role in the
-bot. The event alerts **at its start time and one hour before**, for every subscriber of
-that calendar; those timings are fixed (`DEFAULT_REMINDER_OFFSETS` in
+Any subscriber can add or edit a date on a calendar they follow — there is no admin role
+in the bot. The event alerts **at its start time and one hour before**, for every
+subscriber of that calendar; those timings are fixed (`DEFAULT_REMINDER_OFFSETS` in
 `bot/handlers/create_event.py`). Dates in the past are rejected, since their reminders
-would fire immediately.
+would fire immediately. An event can repeat `daily`, `weekly`, `monthly`, or `yearly`;
+after each occurrence's reminders fire, the scheduler advances it to the next date
+automatically. Editing a date reschedules all of its reminders to the new time.
 
 Users still cannot create or delete *calendars* from the bot, and there are **no admin
 commands** — that lives in the web panel.

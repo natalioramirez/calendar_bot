@@ -1,7 +1,7 @@
 """Start command: registers the user and lists the three things the bot does."""
 
 import logging
-from telegram import Update
+from telegram import ReplyKeyboardRemove, Update
 from telegram.ext import ContextTypes
 from telegram.helpers import escape_markdown
 
@@ -35,4 +35,5 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         "/nuevo — crear un evento en un calendario\n\n"
         "Las alertas te llegan solas, no tenés que hacer nada más.",
         parse_mode="Markdown",
+        reply_markup=ReplyKeyboardRemove(),
     )

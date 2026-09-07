@@ -389,6 +389,38 @@ async def update_event_notes(db: AsyncSession, event_id: int, notes: str) -> Opt
     return await get_event_by_id(db, event_id)
 
 
+async def update_event(
+    db: AsyncSession,
+    event_id: int,
+    title: Optional[str] = None,
+    start_time: Optional[datetime] = None,
+    notes: Optional[str] = None,
+    recurrence: Optional[str] = None,
+) -> Optional[Event]:
+    """Update selected fields of an event. `None` means "leave unchanged" for that field.
+
+    Changing start_time reschedules every reminder relative to the new time.
+    """
+    event = await get_event_by_id(db, event_id)
+    if not event:
+        return None
+
+    if title is not None:
+        event.title = title
+    if notes is not None:
+        event.notes = notes
+    if recurrence is not None:
+        event.recurrence = recurrence
+    if start_time is not None:
+        event.start_time = start_time
+        for r in event.reminders:
+            r.remind_at = start_time - timedelta(minutes=r.remind_before_minutes)
+            r.is_sent = False
+
+    await db.flush()
+    return event
+
+
 async def delete_event(db: AsyncSession, event_id: int) -> bool:
     """Delete an event and cascade-delete its reminders."""
     stmt = delete(Event).where(Event.id == event_id)

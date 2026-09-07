@@ -17,6 +17,7 @@ from datetime import datetime
 from bot.config import settings
 from bot.database.session import init_db
 from bot.handlers.create_event import get_create_event_handler
+from bot.handlers.edit_event import get_edit_event_handler
 from bot.handlers.events import list_upcoming_events_command
 from bot.handlers.start import start_command
 from bot.handlers.subscriptions import (
@@ -61,6 +62,7 @@ async def post_init(application: Application) -> None:
         BotCommand("unsub", "Dejar de seguir un calendario"),
         BotCommand("events", "Ver tus próximas fechas"),
         BotCommand("nuevo", "Crear un evento en un calendario"),
+        BotCommand("edit", "Editar un evento existente"),
     ])
 
     logger.info("Initializing database tables...")
@@ -118,8 +120,9 @@ def create_application() -> Application:
         .build()
     )
 
-    # The conversation goes first so its steps capture the user's replies.
+    # The conversations go first so their steps capture the user's replies.
     app.add_handler(get_create_event_handler())
+    app.add_handler(get_edit_event_handler())
 
     app.add_handler(CommandHandler("start", start_command))
     app.add_handler(CommandHandler("sub", sub_command))
