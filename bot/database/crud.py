@@ -361,20 +361,25 @@ async def get_user_upcoming_events(
     user_id: int,
     limit: int = 10,
     from_date: Optional[datetime] = None,
+    to_date: Optional[datetime] = None,
 ) -> Sequence[Event]:
-    """Get upcoming events across all calendars the user is enrolled in."""
+    """Get upcoming events across all calendars the user is enrolled in, optionally capped at to_date."""
     if from_date is None:
         from_date = datetime.now()
+
+    conditions = [
+        CalendarMember.user_id == user_id,
+        Event.start_time >= from_date,
+    ]
+    if to_date is not None:
+        conditions.append(Event.start_time <= to_date)
 
     stmt = (
         select(Event)
         .join(Calendar, Event.calendar_id == Calendar.id)
         .join(CalendarMember, Calendar.id == CalendarMember.calendar_id)
         .options(selectinload(Event.calendar))
-        .where(
-            CalendarMember.user_id == user_id,
-            Event.start_time >= from_date,
-        )
+        .where(and_(*conditions))
         .order_by(Event.start_time.asc())
         .limit(limit)
     )

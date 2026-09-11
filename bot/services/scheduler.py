@@ -5,7 +5,7 @@ from telegram.ext import CallbackContext
 
 from bot.database.crud import get_pending_reminders, mark_reminder_sent
 from bot.database.session import get_db
-from bot.utils.datetime_utils import format_datetime
+from bot.utils.datetime_utils import format_date
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +61,7 @@ async def check_and_send_reminders(bot) -> int:
                 await mark_reminder_sent(db, reminder.id)
                 continue
 
-            time_str = format_datetime(event.start_time)
+            time_str = format_date(event.start_time)
 
             # Send to all members who have notifications enabled
             for member in calendar.members:

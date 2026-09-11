@@ -12,9 +12,11 @@ creating calendars, managing members, bulk event edits — happens in the web pa
 
 - 🔔 **Subscribe & get alerted**: `/sub` lists the available calendars; pick one and the
   bot sends you its reminders automatically. `/unsub` stops them.
-- 📅 **See upcoming dates**: `/events` prints your next dates in a single plain list.
+- 📅 **See upcoming dates**: `/events` asks for a range (next week, next month, next 3
+  months, or everything) and prints your dates in that window.
 - ➕ **Add a date**: `/nuevo` walks you through calendar → date → title → recurrence →
-  comment (the calendar step is skipped if you only follow one).
+  extra reminder → comment (the calendar step is skipped if you only follow one). Every
+  event is all-day; there's no time-of-day to pick.
 - ✏️ **Edit a date**: `/edit` lets you pick one of your upcoming events and change its
   date, title, comment, or recurrence.
 - 📝 **Rich Event Notes**: Agendas, meeting links, and descriptions are attached to events
@@ -43,7 +45,7 @@ tg_calendar/
 │   │   ├── edit_event.py      # /edit: the event editing flow
 │   │   └── events.py          # /events: the upcoming dates list
 │   ├── keyboards/
-│   │   └── common.py          # Calendar picker, recurrence picker, edit-field menu
+│   │   └── common.py          # Calendar, recurrence, reminder, edit-field, and date-range pickers
 │   ├── services/
 │   │   ├── scheduler.py       # Background reminder checker & dispatcher
 │   │   └── google_calendar.py # Google Calendar API v3 client
@@ -133,8 +135,8 @@ The bot has five commands (plus `/cancel`) and no persistent menus:
 | `/start` | Registers you and shows this list |
 | `/sub` | Lists the calendars you are not subscribed to; tap one to subscribe |
 | `/unsub` | Lists your calendars; tap one to stop its alerts |
-| `/events` | Your upcoming dates, across every calendar you follow |
-| `/nuevo` | Creates an event: calendar (skipped if you only have one), date, title, recurrence, comment |
+| `/events` | Pick a range (week / month / 3 months / all) and see your dates in it |
+| `/nuevo` | Creates an event: calendar (skipped if you only have one), date, title, recurrence, extra reminder, comment |
 | `/edit` | Pick one of your upcoming events and change its date, title, comment, or recurrence |
 | `/cancel` | Aborts `/nuevo` or `/edit` halfway through |
 
@@ -143,12 +145,14 @@ Alerts arrive on their own — there is nothing to configure.
 ### About `/nuevo` and `/edit`
 
 Any subscriber can add or edit a date on a calendar they follow — there is no admin role
-in the bot. The event alerts **at its start time and one hour before**, for every
-subscriber of that calendar; those timings are fixed (`DEFAULT_REMINDER_OFFSETS` in
-`bot/handlers/create_event.py`). Dates in the past are rejected, since their reminders
-would fire immediately. An event can repeat `daily`, `weekly`, `monthly`, or `yearly`;
-after each occurrence's reminders fire, the scheduler advances it to the next date
-automatically. Editing a date reschedules all of its reminders to the new time.
+in the bot. Every event is **all-day** (there's no time-of-day to pick); its day-of alert
+always fires **at 8am** (`EVENT_NOTIFICATION_HOUR` in `bot/utils/datetime_utils.py`), for
+every subscriber of that calendar. While creating an event you can add one extra
+reminder — 1, 2, 3, or 7 days before — on top of the day-of alert. Dates in the past are
+rejected, since their reminders would fire immediately. An event can repeat `daily`,
+`weekly`, `monthly`, or `yearly`; after each occurrence's reminders fire, the scheduler
+advances it to the next date automatically. Editing a date reschedules all of its
+reminders (day-of and the extra one, if any) relative to the new date.
 
 Users still cannot create or delete *calendars* from the bot, and there are **no admin
 commands** — that lives in the web panel.

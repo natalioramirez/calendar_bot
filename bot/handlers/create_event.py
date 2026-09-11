@@ -1,4 +1,8 @@
-"""Step-by-step event creation: pick calendar -> date & time -> title -> recurrence -> comment."""
+"""Step-by-step event creation: pick calendar -> date -> title -> recurrence -> reminder -> comment.
+
+Every event is all-day: there is no time-of-day to pick. Its day-of notification always
+fires at EVENT_NOTIFICATION_HOUR (see bot/utils/datetime_utils.py).
+"""
 
 import logging
 from datetime import datetime
@@ -21,23 +25,26 @@ from bot.database.crud import (
     get_user_calendars,
 )
 from bot.database.session import get_db
-from bot.keyboards.common import RECURRENCE_LABELS, get_calendar_choice_keyboard, get_recurrence_keyboard
-from bot.utils.datetime_utils import format_datetime, parse_datetime_input
+from bot.keyboards.common import (
+    REMINDER_LABELS,
+    RECURRENCE_LABELS,
+    get_calendar_choice_keyboard,
+    get_recurrence_keyboard,
+    get_reminder_keyboard,
+)
+from bot.utils.datetime_utils import format_date, parse_date_input
 
 logger = logging.getLogger(__name__)
 
-CHOOSE_CALENDAR, ENTER_DATETIME, ENTER_TITLE, CHOOSE_RECURRENCE, ENTER_NOTES = range(5)
-
-# Every event created from the bot alerts at start time and one hour before.
-DEFAULT_REMINDER_OFFSETS = [0, 60]
+CHOOSE_CALENDAR, ENTER_DATE, ENTER_TITLE, CHOOSE_RECURRENCE, CHOOSE_REMINDER, ENTER_NOTES = range(6)
 
 MAX_TITLE_LENGTH = 200
 MAX_NOTES_LENGTH = 500
 
-DATETIME_PROMPT = (
-    "📅 ¿Qué fecha y hora?\n\n"
-    "Escribila así: `2026-10-15 14:30`\n"
-    "También vale `15/10/2026 14:30`.\n\n"
+DATE_PROMPT = (
+    "📅 ¿Qué día? (el evento dura todo el día)\n\n"
+    "Escribilo así: `2026-10-15`\n"
+    "También vale `15/10/2026`.\n\n"
     "Podés cortar en cualquier momento con /cancel."
 )
 
@@ -66,10 +73,10 @@ async def new_event_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         cal = calendars[0]
         context.user_data["new_event_calendar_id"] = cal.id
         await update.message.reply_text(
-            f"🗓 *Nuevo evento* en *{escape_markdown(cal.name, version=1)}*\n\n{DATETIME_PROMPT}",
+            f"🗓 *Nuevo evento* en *{escape_markdown(cal.name, version=1)}*\n\n{DATE_PROMPT}",
             parse_mode="Markdown",
         )
-        return ENTER_DATETIME
+        return ENTER_DATE
 
     await update.message.reply_text(
         "🗓 *Nuevo evento*\n\n¿En qué calendario lo creo?",
@@ -80,39 +87,38 @@ async def new_event_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 
 
 async def calendar_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Store the chosen calendar and ask for the date and time."""
+    """Store the chosen calendar and ask for the date."""
     query = update.callback_query
     await query.answer()
 
     context.user_data["new_event_calendar_id"] = int(query.data.split(":")[1])
 
-    await query.message.edit_text(DATETIME_PROMPT, parse_mode="Markdown")
-    return ENTER_DATETIME
+    await query.message.edit_text(DATE_PROMPT, parse_mode="Markdown")
+    return ENTER_DATE
 
 
-async def datetime_received(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Validate the date and time, then ask for the title."""
-    start_time = parse_datetime_input(update.message.text)
+async def date_received(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Validate the date, then ask for the title."""
+    start_time = parse_date_input(update.message.text)
 
     if start_time is None:
         await update.message.reply_text(
             "⚠️ No entendí esa fecha.\n\n"
-            "Probá con `2026-10-15 14:30` o `15/10/2026 14:30`.",
+            "Probá con `2026-10-15` o `15/10/2026`.",
             parse_mode="Markdown",
         )
-        return ENTER_DATETIME
+        return ENTER_DATE
 
-    # A past event would fire its reminders immediately, so reject it here.
-    if start_time <= datetime.now():
+    if start_time.date() < datetime.now().date():
         await update.message.reply_text(
-            "⚠️ Esa fecha ya pasó. Escribí una futura para que las alertas tengan sentido."
+            "⚠️ Ese día ya pasó. Escribí uno de hoy en adelante."
         )
-        return ENTER_DATETIME
+        return ENTER_DATE
 
     context.user_data["new_event_start_time"] = start_time
 
     await update.message.reply_text(
-        f"🕒 {format_datetime(start_time)}\n\n¿Cómo se llama el evento?"
+        f"📅 {format_date(start_time)}\n\n¿Cómo se llama el evento?"
     )
     return ENTER_TITLE
 
@@ -136,12 +142,27 @@ async def title_received(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 async def recurrence_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Store the recurrence and ask for an optional comment."""
+    """Store the recurrence and ask about an extra reminder."""
     query = update.callback_query
     await query.answer()
 
     recurrence = query.data.split(":")[1]
     context.user_data["new_event_recurrence"] = recurrence
+
+    await query.message.edit_text(
+        "⏰ El evento ya avisa el día que es, a las 8am.\n\n¿Querés un recordatorio extra antes?",
+        reply_markup=get_reminder_keyboard(),
+    )
+    return CHOOSE_REMINDER
+
+
+async def reminder_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Store the extra reminder choice and ask for an optional comment."""
+    query = update.callback_query
+    await query.answer()
+
+    reminder = query.data.split(":")[1]
+    context.user_data["new_event_reminder_days"] = None if reminder == "none" else int(reminder)
 
     await query.message.edit_text(
         "💬 ¿Querés agregar un comentario al evento?\n\nEscribilo, o tocá el botón para omitirlo.",
@@ -171,11 +192,17 @@ async def _finalize_event(update: Update, context: ContextTypes.DEFAULT_TYPE, no
     start_time = context.user_data.pop("new_event_start_time", None)
     title = context.user_data.pop("new_event_title", None)
     recurrence = context.user_data.pop("new_event_recurrence", "none")
+    reminder_days = context.user_data.pop("new_event_reminder_days", None)
 
     chat = update.effective_chat
     if calendar_id is None or start_time is None or title is None:
         await chat.send_message("⚠️ Se perdió el hilo del evento. Empezá de nuevo con /nuevo.")
         return ConversationHandler.END
+
+    # The day-of notification always fires (offset 0); an extra reminder is measured in whole days.
+    reminder_offsets_minutes = [0]
+    if reminder_days:
+        reminder_offsets_minutes.append(reminder_days * 24 * 60)
 
     user = update.effective_user
     async with get_db() as db:
@@ -193,21 +220,23 @@ async def _finalize_event(update: Update, context: ContextTypes.DEFAULT_TYPE, no
             title=title,
             start_time=start_time,
             notes=notes,
+            is_all_day=True,
             recurrence=recurrence,
-            reminder_offsets_minutes=DEFAULT_REMINDER_OFFSETS,
+            reminder_offsets_minutes=reminder_offsets_minutes,
         )
 
     lines = [
         f"✅ Evento creado en *{escape_markdown(cal_name, version=1)}*",
         "",
         f"📅 {escape_markdown(title, version=1)}",
-        f"🕒 {escape_markdown(format_datetime(start_time), version=1)}",
+        f"🗓 {escape_markdown(format_date(start_time), version=1)}",
         f"🔁 {RECURRENCE_LABELS.get(recurrence, 'No se repite')}",
+        f"⏰ {REMINDER_LABELS.get(str(reminder_days) if reminder_days else 'none', 'Sin recordatorio extra')}",
     ]
     if notes:
         lines.append(f"💬 {escape_markdown(notes, version=1)}")
     lines.append("")
-    lines.append("Se avisa al momento del evento y 1 hora antes, a todos los suscriptos del calendario.")
+    lines.append("Se avisa a las 8am del día del evento, a todos los suscriptos del calendario.")
 
     await chat.send_message("\n".join(lines), parse_mode="Markdown")
     return ConversationHandler.END
@@ -219,6 +248,7 @@ async def cancel_creation(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     context.user_data.pop("new_event_start_time", None)
     context.user_data.pop("new_event_title", None)
     context.user_data.pop("new_event_recurrence", None)
+    context.user_data.pop("new_event_reminder_days", None)
     await update.message.reply_text("❌ Cancelado, no creé nada.")
     return ConversationHandler.END
 
@@ -229,10 +259,13 @@ def get_create_event_handler() -> ConversationHandler:
         entry_points=[CommandHandler("nuevo", new_event_command)],
         states={
             CHOOSE_CALENDAR: [CallbackQueryHandler(calendar_chosen, pattern=r"^newev:\d+$")],
-            ENTER_DATETIME: [MessageHandler(filters.TEXT & ~filters.COMMAND, datetime_received)],
+            ENTER_DATE: [MessageHandler(filters.TEXT & ~filters.COMMAND, date_received)],
             ENTER_TITLE: [MessageHandler(filters.TEXT & ~filters.COMMAND, title_received)],
             CHOOSE_RECURRENCE: [
                 CallbackQueryHandler(recurrence_chosen, pattern=r"^rec:(none|daily|weekly|monthly|yearly)$")
+            ],
+            CHOOSE_REMINDER: [
+                CallbackQueryHandler(reminder_chosen, pattern=r"^remind:(none|1|2|3|7)$")
             ],
             ENTER_NOTES: [
                 CallbackQueryHandler(notes_skip, pattern=r"^notes:skip$"),

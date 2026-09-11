@@ -18,7 +18,7 @@ from bot.config import settings
 from bot.database.session import init_db
 from bot.handlers.create_event import get_create_event_handler
 from bot.handlers.edit_event import get_edit_event_handler
-from bot.handlers.events import list_upcoming_events_command
+from bot.handlers.events import events_range_chosen, list_upcoming_events_command
 from bot.handlers.start import start_command
 from bot.handlers.subscriptions import (
     sub_command,
@@ -131,6 +131,7 @@ def create_application() -> Application:
 
     app.add_handler(CallbackQueryHandler(subscribe_callback, pattern=r"^sub:\d+$"))
     app.add_handler(CallbackQueryHandler(unsubscribe_callback, pattern=r"^unsub:\d+$"))
+    app.add_handler(CallbackQueryHandler(events_range_chosen, pattern=r"^eventsrange:(week|month|3months|all)$"))
 
     return app
 

@@ -17,11 +17,11 @@ from telegram.helpers import escape_markdown
 from bot.database.crud import get_event_by_id, get_or_create_user, get_user_upcoming_events, update_event
 from bot.database.session import get_db
 from bot.keyboards.common import RECURRENCE_LABELS, get_edit_field_keyboard, get_recurrence_keyboard
-from bot.utils.datetime_utils import format_datetime, parse_datetime_input
+from bot.utils.datetime_utils import format_date, parse_date_input
 
 logger = logging.getLogger(__name__)
 
-CHOOSE_EVENT, CHOOSE_FIELD, ENTER_DATETIME, ENTER_TITLE, ENTER_NOTES = range(5)
+CHOOSE_EVENT, CHOOSE_FIELD, ENTER_DATE, ENTER_TITLE, ENTER_NOTES = range(5)
 
 MAX_TITLE_LENGTH = 200
 MAX_NOTES_LENGTH = 500
@@ -33,7 +33,7 @@ EDITABLE_EVENTS_LIMIT = 25
 def _event_summary(ev) -> str:
     lines = [
         f"📅 *{escape_markdown(ev.title, version=1)}*",
-        f"🕒 {escape_markdown(format_datetime(ev.start_time), version=1)}",
+        f"🗓 {escape_markdown(format_date(ev.start_time), version=1)}",
         f"🔁 {RECURRENCE_LABELS.get(ev.recurrence, 'No se repite')}",
     ]
     if ev.notes:
@@ -58,7 +58,7 @@ async def edit_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
         return ConversationHandler.END
 
     keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton(f"{ev.title} — {format_datetime(ev.start_time)}", callback_data=f"editev:{ev.id}")]
+        [InlineKeyboardButton(f"{ev.title} — {format_date(ev.start_time)}", callback_data=f"editev:{ev.id}")]
         for ev in events
     ])
 
@@ -95,13 +95,13 @@ async def field_chosen(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
     if field == "datetime":
         await query.message.edit_text(
-            "📅 ¿Nueva fecha y hora?\n\n"
-            "Escribila así: `2026-10-15 14:30`\n"
-            "También vale `15/10/2026 14:30`.\n\n"
+            "📅 ¿Nuevo día?\n\n"
+            "Escribilo así: `2026-10-15`\n"
+            "También vale `15/10/2026`.\n\n"
             "Podés cortar en cualquier momento con /cancel.",
             parse_mode="Markdown",
         )
-        return ENTER_DATETIME
+        return ENTER_DATE
 
     if field == "title":
         await query.message.edit_text("📝 ¿Nuevo título?")
@@ -138,23 +138,23 @@ async def recurrence_edited(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     return await _show_field_menu(update, context, event_id, edit_message=True)
 
 
-async def datetime_edited(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Validate and apply the new date/time, then go back to the field menu."""
-    start_time = parse_datetime_input(update.message.text)
+async def date_edited(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Validate and apply the new date, then go back to the field menu."""
+    start_time = parse_date_input(update.message.text)
 
     if start_time is None:
         await update.message.reply_text(
             "⚠️ No entendí esa fecha.\n\n"
-            "Probá con `2026-10-15 14:30` o `15/10/2026 14:30`.",
+            "Probá con `2026-10-15` o `15/10/2026`.",
             parse_mode="Markdown",
         )
-        return ENTER_DATETIME
+        return ENTER_DATE
 
-    if start_time <= datetime.now():
+    if start_time.date() < datetime.now().date():
         await update.message.reply_text(
-            "⚠️ Esa fecha ya pasó. Escribí una futura para que las alertas tengan sentido."
+            "⚠️ Ese día ya pasó. Escribí uno de hoy en adelante."
         )
-        return ENTER_DATETIME
+        return ENTER_DATE
 
     event_id = context.user_data.get("edit_event_id")
     async with get_db() as db:
@@ -232,7 +232,7 @@ def get_edit_event_handler() -> ConversationHandler:
                 CallbackQueryHandler(field_chosen, pattern=r"^editfield:(datetime|title|notes|recurrence|done)$"),
                 CallbackQueryHandler(recurrence_edited, pattern=r"^editrec:(none|daily|weekly|monthly|yearly)$"),
             ],
-            ENTER_DATETIME: [MessageHandler(filters.TEXT & ~filters.COMMAND, datetime_edited)],
+            ENTER_DATE: [MessageHandler(filters.TEXT & ~filters.COMMAND, date_edited)],
             ENTER_TITLE: [MessageHandler(filters.TEXT & ~filters.COMMAND, title_edited)],
             ENTER_NOTES: [MessageHandler(filters.TEXT & ~filters.COMMAND, notes_edited)],
         },
