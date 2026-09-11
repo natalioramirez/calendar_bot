@@ -9,6 +9,7 @@ from bot.config import settings
 from bot.database import crud
 from bot.database.session import get_db, init_db
 from bot.services.islamic_calendar import CalendarNotFoundError, sync_islamic_calendar
+from bot.utils.datetime_utils import EVENT_NOTIFICATION_HOUR
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
@@ -232,22 +233,26 @@ async def create_event_route():
     user_id_raw = request.form.get("user_id")
     title = request.form.get("title", "").strip()
     date_str = request.form.get("date", "").strip()
-    time_str = request.form.get("time", "09:00").strip()
     notes = request.form.get("notes", "").strip() or None
     recurrence = request.form.get("recurrence", "none")
-    reminders_raw = request.form.getlist("reminders")
+    extra_reminder_raw = request.form.get("extra_reminder", "").strip()
 
     if not title or not date_str or not calendar_id_raw:
         flash("Título, fecha y calendario son obligatorios.", "error")
         return redirect(url_for("list_events"))
 
     try:
-        start_time = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
+        event_date = datetime.strptime(date_str, "%Y-%m-%d")
     except ValueError:
-        flash("Formato de fecha u hora inválido.", "error")
+        flash("Formato de fecha inválido.", "error")
         return redirect(url_for("list_events"))
 
-    reminder_offsets = [int(r) for r in reminders_raw if r.isdigit()]
+    # All events are all-day; the day-of notification always fires at EVENT_NOTIFICATION_HOUR.
+    start_time = event_date.replace(hour=EVENT_NOTIFICATION_HOUR)
+    reminder_offsets = [0]
+    if extra_reminder_raw.isdigit():
+        reminder_offsets.append(int(extra_reminder_raw) * 24 * 60)
+
     calendar_id = int(calendar_id_raw)
 
     async with get_db() as db:
@@ -265,6 +270,7 @@ async def create_event_route():
             title=title,
             start_time=start_time,
             notes=notes,
+            is_all_day=True,
             recurrence=recurrence,
             reminder_offsets_minutes=reminder_offsets,
         )

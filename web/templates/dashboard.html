@@ -99,7 +99,7 @@
                                 {% for ev in upcoming_events %}
                                 <tr>
                                     <td class="fw-semibold text-primary" style="white-space: nowrap;">
-                                        <i class="bi bi-calendar-event me-1"></i> {{ ev.start_time.strftime('%d/%m/%Y %H:%M') }}
+                                        <i class="bi bi-calendar-event me-1"></i> {{ ev.start_time.strftime('%d/%m/%Y') }}
                                     </td>
                                     <td class="fw-bold">{{ ev.title }}</td>
                                     <td>

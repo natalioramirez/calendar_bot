@@ -46,7 +46,7 @@
             <table class="table table-hover align-middle mb-0">
                 <thead class="table-light">
                     <tr>
-                        <th class="ps-4">Fecha & Hora</th>
+                        <th class="ps-4">Fecha</th>
                         <th>Título del Evento</th>
                         <th>Calendario</th>
                         <th>Notas / Descripción</th>
@@ -59,7 +59,7 @@
                     {% for ev in events %}
                     <tr>
                         <td class="ps-4 fw-semibold text-primary" style="white-space: nowrap;">
-                            <i class="bi bi-clock me-1"></i> {{ ev.start_time.strftime('%d/%m/%Y %H:%M') }}
+                            <i class="bi bi-calendar-event me-1"></i> {{ ev.start_time.strftime('%d/%m/%Y') }}
                         </td>
                         <td>
                             <div class="fw-bold text-dark">{{ ev.title }}</div>
@@ -136,14 +136,7 @@
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Fecha <span class="text-danger">*</span></label>
                             <input type="date" name="date" class="form-control" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold">Hora <span class="text-danger">*</span></label>
-                            <input type="time" name="time" class="form-control" value="09:00" required>
-                        </div>
-                        <div class="col-12">
-                            <label class="form-label fw-semibold">Notas / Descripción (Opcional)</label>
-                            <textarea name="notes" class="form-control" rows="2" placeholder="Detalles, enlaces de reuniones, instrucciones..."></textarea>
+                            <div class="form-text">El evento dura todo el día; el aviso se manda a las 8am.</div>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label fw-semibold">Recurrencia</label>
@@ -155,24 +148,32 @@
                                 <option value="yearly">Anual</option>
                             </select>
                         </div>
-                        <div class="col-md-6">
-                            <label class="form-label fw-semibold">Alertas de Recordatorio</label>
-                            <div class="d-flex flex-column gap-1 pt-1">
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Notas / Descripción (Opcional)</label>
+                            <textarea name="notes" class="form-control" rows="2" placeholder="Detalles, enlaces de reuniones, instrucciones..."></textarea>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Recordatorio extra (además del aviso del día a las 8am)</label>
+                            <div class="d-flex flex-wrap gap-3 pt-1">
                                 <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="reminders" value="0" id="rem0" checked>
-                                    <label class="form-check-label" for="rem0">Al momento del evento</label>
+                                    <input class="form-check-input" type="radio" name="extra_reminder" value="" id="remNone" checked>
+                                    <label class="form-check-label" for="remNone">Sin recordatorio extra</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="reminders" value="15" id="rem15">
-                                    <label class="form-check-label" for="rem15">15 minutos antes</label>
+                                    <input class="form-check-input" type="radio" name="extra_reminder" value="1" id="rem1">
+                                    <label class="form-check-label" for="rem1">1 día antes</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="reminders" value="60" id="rem60" checked>
-                                    <label class="form-check-label" for="rem60">1 hora antes</label>
+                                    <input class="form-check-input" type="radio" name="extra_reminder" value="2" id="rem2">
+                                    <label class="form-check-label" for="rem2">2 días antes</label>
                                 </div>
                                 <div class="form-check">
-                                    <input class="form-check-input" type="checkbox" name="reminders" value="1440" id="rem1440">
-                                    <label class="form-check-label" for="rem1440">1 día antes</label>
+                                    <input class="form-check-input" type="radio" name="extra_reminder" value="3" id="rem3">
+                                    <label class="form-check-label" for="rem3">3 días antes</label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="extra_reminder" value="7" id="rem7">
+                                    <label class="form-check-label" for="rem7">1 semana antes</label>
                                 </div>
                             </div>
                         </div>
